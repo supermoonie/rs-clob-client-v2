@@ -39,7 +39,6 @@ fn is_no_proxy(host: &str) -> bool {
     if no_proxy == "*" {
         return true;
     }
-
     for pattern in no_proxy.split(',').map(str::trim).filter(|s| !s.is_empty()) {
         if let Some(suffix) = pattern.strip_prefix('.') {
             // Domain suffix match: .example.com matches foo.example.com

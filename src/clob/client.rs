@@ -16,7 +16,7 @@ use bon::Builder;
 use chrono::{NaiveDate, Utc};
 use dashmap::DashMap;
 use futures::Stream;
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::header::HeaderMap;
 use reqwest::{Client as ReqwestClient, Method, Request};
 use serde_json::json;
 #[cfg(all(feature = "tracing", feature = "heartbeats"))]
@@ -425,6 +425,12 @@ pub struct Config {
     #[builder(default = Duration::from_secs(5))]
     /// How often the [`Client`] will automatically submit heartbeats. The default is five (5) seconds.
     heartbeat_interval: Duration,
+    /// Optional HTTP proxy URL for routing requests through a proxy server.
+    ///
+    /// Supports HTTP, HTTPS, and SOCKS5 proxies.
+    /// Example: `"http://user:pass@proxy.example.com:8080"` or `"socks5://127.0.0.1:1080"`
+    #[builder(into)]
+    proxy: Option<String>,
 }
 
 impl Default for Config {
@@ -435,6 +441,7 @@ impl Default for Config {
             builder_code: None,
             #[cfg(feature = "heartbeats")]
             heartbeat_interval: Duration::from_secs(5),
+            proxy: None,
         }
     }
 }
@@ -1464,14 +1471,7 @@ impl Client<Unauthenticated> {
     /// # }
     /// ```
     pub fn new(host: &str, config: Config) -> Result<Client<Unauthenticated>> {
-        let mut headers = HeaderMap::new();
-
-        headers.insert("User-Agent", HeaderValue::from_static("rs_clob_client"));
-        headers.insert("Accept", HeaderValue::from_static("*/*"));
-        headers.insert("Connection", HeaderValue::from_static("keep-alive"));
-        headers.insert("Content-Type", HeaderValue::from_static("application/json"));
-
-        let client = ReqwestClient::builder().default_headers(headers).build()?;
+        let client = crate::http::client_builder(config.proxy.as_deref())?.build()?;
 
         let geoblock_host = Url::parse(
             config
